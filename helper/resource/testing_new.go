@@ -61,7 +61,7 @@ func RunNewTest(t *testing.T, c TestCase, providers map[string]terraform.Resourc
 
 		wd.Close()
 	}()
-
+	backupProviderFactory := useExternalProvider(&c)
 	providerCfg, err := testProviderConfig(c)
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +100,9 @@ func RunNewTest(t *testing.T, c TestCase, providers map[string]terraform.Resourc
 
 		if step.ImportState {
 			step.providers = providers
+			useDevelopProvider(&c, backupProviderFactory)
 			err := testStepNewImportState(t, c, wd, step, appliedCfg)
+			useExternalProvider(&c)
 			if step.ExpectError != nil {
 				if err == nil {
 					t.Fatalf("Step %d/%d error running import: expected an error but got none", i+1, len(c.Steps))
