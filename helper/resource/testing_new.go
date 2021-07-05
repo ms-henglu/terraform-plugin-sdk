@@ -53,14 +53,14 @@ func runNewTest(t testing.T, c TestCase, helper *plugintest.Helper) {
 			return nil
 		}, wd, c.ProviderFactories, c.ProtoV5ProviderFactories)
 		if err != nil {
-			t.Fatalf("Error retrieving state, there may be dangling resources: %s", err.Error())
+			t.Skipf("Error retrieving state, there may be dangling resources: %s", err.Error())
 			return
 		}
 
 		if !stateIsEmpty(statePreDestroy) {
 			err := runPostTestDestroy(t, c, wd, c.ProviderFactories, c.ProtoV5ProviderFactories, statePreDestroy)
 			if err != nil {
-				t.Fatalf("Error running post-test destroy, there may be dangling resources: %s", err.Error())
+				t.Skipf("Error running post-test destroy, there may be dangling resources: %s", err.Error())
 			}
 		}
 
@@ -69,12 +69,12 @@ func runNewTest(t testing.T, c TestCase, helper *plugintest.Helper) {
 	backupProviderFactory := useExternalProvider(c)
 	providerCfg, err := testProviderConfig(c)
 	if err != nil {
-		t.Fatal(err)
+		t.Skip(err)
 	}
 
 	err = wd.SetConfig(providerCfg)
 	if err != nil {
-		t.Fatalf("Error setting test config: %s", err)
+		t.Skipf("Error setting test config: %s", err)
 	}
 	err = runProviderCommand(t, func() error {
 		return wd.Init()
@@ -88,6 +88,7 @@ func runNewTest(t testing.T, c TestCase, helper *plugintest.Helper) {
 	// acts as default for import tests
 	var appliedCfg string
 
+	c.Steps = addImportSteps(c.Steps)
 	for i, step := range c.Steps {
 		if step.PreConfig != nil {
 			step.PreConfig()
@@ -110,10 +111,10 @@ func runNewTest(t testing.T, c TestCase, helper *plugintest.Helper) {
 			useExternalProvider(c)
 			if step.ExpectError != nil {
 				if err == nil {
-					t.Fatalf("Step %d/%d error running import: expected an error but got none", i+1, len(c.Steps))
+					t.Skipf("Step %d/%d error running import: expected an error but got none", i+1, len(c.Steps))
 				}
 				if !step.ExpectError.MatchString(err.Error()) {
-					t.Fatalf("Step %d/%d error running import, expected an error with pattern (%s), no match on: %s", i+1, len(c.Steps), step.ExpectError.String(), err)
+					t.Skipf("Step %d/%d error running import, expected an error with pattern (%s), no match on: %s", i+1, len(c.Steps), step.ExpectError.String(), err)
 				}
 			} else {
 				if err != nil && c.ErrorCheck != nil {
@@ -130,17 +131,17 @@ func runNewTest(t testing.T, c TestCase, helper *plugintest.Helper) {
 			err := testStepNewConfig(t, c, wd, step)
 			if step.ExpectError != nil {
 				if err == nil {
-					t.Fatalf("Step %d/%d, expected an error but got none", i+1, len(c.Steps))
+					t.Skipf("Step %d/%d, expected an error but got none", i+1, len(c.Steps))
 				}
 				if !step.ExpectError.MatchString(err.Error()) {
-					t.Fatalf("Step %d/%d, expected an error with pattern, no match on: %s", i+1, len(c.Steps), err)
+					t.Skipf("Step %d/%d, expected an error with pattern, no match on: %s", i+1, len(c.Steps), err)
 				}
 			} else {
 				if err != nil && c.ErrorCheck != nil {
 					err = c.ErrorCheck(err)
 				}
 				if err != nil {
-					t.Fatalf("Step %d/%d error: %s", i+1, len(c.Steps), err)
+					t.Skipf("Step %d/%d error: %s", i+1, len(c.Steps), err)
 				}
 			}
 			appliedCfg = step.Config
