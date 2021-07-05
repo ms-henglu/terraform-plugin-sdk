@@ -38,6 +38,13 @@ func getStandardProviderVersion() string {
 	return os.Getenv("TF_ACC_PROVIDER_VERSION")
 }
 
+func isFixImportStepEnabled() bool {
+	if enabled, err := strconv.ParseBool(os.Getenv("TF_ACC_FIX_IMPORT")); err == nil {
+		return enabled
+	}
+	return true
+}
+
 /*
 replace develop provider with released provider
 */
@@ -67,4 +74,23 @@ func useDevelopProvider(c TestCase, backupProviderFactory func() (*schema.Provid
 		c.ProviderFactories[provider] = backupProviderFactory
 		delete(c.ExternalProviders, provider)
 	}
+}
+
+func addImportSteps(steps []TestStep) []TestStep {
+	if !isFixImportStepEnabled() || len(steps) == 0 || len(steps[0].ResourceName) == 0 {
+		return []TestStep{}
+	}
+	resourceName := steps[0].ResourceName
+	results := make([]TestStep, 0)
+	for i, step := range steps {
+		results = append(results, step)
+		if !step.ImportState && step.ExpectError == nil && (i == len(steps)-1 || !steps[i+1].ImportState) {
+			results = append(results, TestStep{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			})
+		}
+	}
+	return results
 }
